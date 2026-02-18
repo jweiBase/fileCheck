@@ -3,17 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-app.setPath('userData', path.join(__dirname, 'app-data'));
-
-const CACHE_DIR = path.join(__dirname, 'app-data', 'cache');
-const CACHE_EXPIRE_TIME = 24 * 60 * 60 * 1000;
+const CACHE_DIR = path.join(app.getPath('userData'), 'scan-cache');
+const CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000;
 
 let mainWindow;
-let scanCache = new Map();
 let scanningPaths = new Set();
 
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
+function ensureCacheDir() {
+  if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+  }
 }
 
 function createWindow() {
@@ -34,6 +33,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ensureCacheDir();
   createWindow();
 
   app.on('activate', () => {
@@ -59,25 +59,36 @@ function getCachePath(cacheKey) {
 
 function loadCache(dirPath) {
   try {
+    ensureCacheDir();
     const cacheKey = getCacheKey(dirPath);
     const cachePath = getCachePath(cacheKey);
     
-    if (fs.existsSync(cachePath)) {
-      const cacheData = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      const cacheTime = cacheData.timestamp || 0;
-      
-      if (Date.now() - cacheTime < CACHE_EXPIRE_TIME) {
-        return cacheData;
-      }
+    if (!fs.existsSync(cachePath)) {
+      return null;
     }
+    
+    const cacheContent = fs.readFileSync(cachePath, 'utf8');
+    const cacheData = JSON.parse(cacheContent);
+    
+    if (!cacheData || !cacheData.data) {
+      return null;
+    }
+    
+    const cacheTime = cacheData.timestamp || 0;
+    if (Date.now() - cacheTime > CACHE_EXPIRE_TIME) {
+      return null;
+    }
+    
+    return cacheData;
   } catch (e) {
-    console.error('Load cache error:', e);
+    console.error('Load cache error:', e.message);
+    return null;
   }
-  return null;
 }
 
 function saveCache(dirPath, data) {
   try {
+    ensureCacheDir();
     const cacheKey = getCacheKey(dirPath);
     const cachePath = getCachePath(cacheKey);
     
@@ -87,9 +98,29 @@ function saveCache(dirPath, data) {
       data: data
     };
     
-    fs.writeFileSync(cachePath, JSON.stringify(cacheData));
+    fs.writeFileSync(cachePath, JSON.stringify(cacheData), 'utf8');
   } catch (e) {
-    console.error('Save cache error:', e);
+    console.error('Save cache error:', e.message);
+  }
+}
+
+function checkFolderModified(cachedData, currentPath) {
+  try {
+    if (!cachedData || !cachedData.path) {
+      return true;
+    }
+    
+    const stats = fs.statSync(currentPath);
+    const currentMtime = stats.mtime.getTime();
+    const cachedMtime = cachedData.modified || 0;
+    
+    if (currentMtime > cachedMtime) {
+      return true;
+    }
+    
+    return false;
+  } catch (e) {
+    return true;
   }
 }
 
@@ -103,11 +134,13 @@ ipcMain.handle('scan-directory', async (event, dirPath, forceRefresh = false) =>
     
     if (!forceRefresh) {
       const cachedResult = loadCache(dirPath);
+      
       if (cachedResult && cachedResult.data) {
-        const incrementalResult = await incrementalUpdate(cachedResult.data);
-        if (incrementalResult) {
+        const isModified = checkFolderModified(cachedResult.data, dirPath);
+        
+        if (!isModified) {
           scanningPaths.delete(dirPath);
-          return { success: true, data: incrementalResult, fromCache: true };
+          return { success: true, data: cachedResult.data, fromCache: true };
         }
       }
     }
@@ -159,32 +192,49 @@ ipcMain.handle('clear-cache', async () => {
     if (fs.existsSync(CACHE_DIR)) {
       const files = fs.readdirSync(CACHE_DIR);
       files.forEach(file => {
-        fs.unlinkSync(path.join(CACHE_DIR, file));
+        try {
+          fs.unlinkSync(path.join(CACHE_DIR, file));
+        } catch (e) {
+          // Ignore
+        }
       });
     }
-    scanCache.clear();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
 });
 
-async function incrementalUpdate(cachedData) {
+ipcMain.handle('get-cache-info', async (event, dirPath) => {
   try {
-    const stats = fs.statSync(cachedData.path);
-    
-    if (stats.mtime.getTime() <= (cachedData.modified || 0)) {
-      return cachedData;
+    const cachedResult = loadCache(dirPath);
+    if (cachedResult) {
+      return {
+        success: true,
+        hasCache: true,
+        timestamp: cachedResult.timestamp,
+        path: cachedResult.path
+      };
     }
-    
-    return null;
-  } catch (e) {
-    return null;
+    return { success: true, hasCache: false };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
-}
+});
 
 async function scanDirectoryParallel(dirPath, currentDepth, maxDepth, event) {
-  const stats = fs.statSync(dirPath);
+  let stats;
+  try {
+    stats = fs.statSync(dirPath);
+  } catch (e) {
+    return {
+      name: path.basename(dirPath),
+      path: dirPath,
+      size: 0,
+      isFile: true,
+      modified: 0
+    };
+  }
   
   if (stats.isFile()) {
     return {

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openInExplorer: (filePath) => ipcRenderer.invoke('open-in-explorer', filePath),
   getDrives: () => ipcRenderer.invoke('get-drives'),
   clearCache: () => ipcRenderer.invoke('clear-cache'),
+  getCacheInfo: (dirPath) => ipcRenderer.invoke('get-cache-info', dirPath),
   onScanProgress: (callback) => {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('scan-progress', listener);
