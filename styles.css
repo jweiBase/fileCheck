@@ -135,6 +135,52 @@ body {
   transform: none;
 }
 
+.refresh-btn {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+  color: #1a1a2e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.refresh-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(129, 199, 132, 0.4);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.clear-cache-btn {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clear-cache-btn:hover {
+  background: rgba(255, 107, 107, 0.3);
+  transform: translateY(-2px);
+}
+
+.clear-cache-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .progress-container {
   width: 150px;
   height: 6px;

@@ -1,6 +1,8 @@
 const pathInput = document.getElementById('pathInput');
 const driveSelect = document.getElementById('driveSelect');
 const scanBtn = document.getElementById('scanBtn');
+const refreshBtn = document.getElementById('refreshBtn');
+const clearCacheBtn = document.getElementById('clearCacheBtn');
 const statusText = document.getElementById('statusText');
 const progressBar = document.getElementById('progressBar');
 const treemapContainer = document.getElementById('treemapContainer');
@@ -28,10 +30,26 @@ const COLORS = [
 ];
 
 let currentData = null;
+let removeProgressListener = null;
 
 async function init() {
   await loadDrives();
   setupEventListeners();
+  setupProgressListener();
+}
+
+function setupProgressListener() {
+  if (removeProgressListener) {
+    removeProgressListener();
+  }
+  
+  removeProgressListener = window.electronAPI.onScanProgress((data) => {
+    if (data.total > 0) {
+      const percent = Math.round((data.scanned / data.total) * 100);
+      progressBar.style.width = percent + '%';
+      statusText.textContent = `扫描中... ${data.scanned}/${data.total}`;
+    }
+  });
 }
 
 async function loadDrives() {
@@ -51,11 +69,29 @@ async function loadDrives() {
 }
 
 function setupEventListeners() {
-  scanBtn.addEventListener('click', startScan);
+  scanBtn.addEventListener('click', () => startScan(false));
+  
+  refreshBtn.addEventListener('click', () => startScan(true));
+  
+  clearCacheBtn.addEventListener('click', async () => {
+    try {
+      const result = await window.electronAPI.clearCache();
+      if (result.success) {
+        statusText.textContent = '缓存已清除';
+        setTimeout(() => {
+          statusText.textContent = '就绪';
+        }, 2000);
+      } else {
+        statusText.textContent = '清除缓存失败: ' + result.error;
+      }
+    } catch (error) {
+      statusText.textContent = '清除缓存出错: ' + error.message;
+    }
+  });
   
   pathInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-      startScan();
+      startScan(false);
     }
   });
   
@@ -98,7 +134,7 @@ function setupEventListeners() {
   });
 }
 
-async function startScan() {
+async function startScan(forceRefresh = false) {
   const path = pathInput.value.trim();
   if (!path) {
     statusText.textContent = '请输入路径';
@@ -106,7 +142,9 @@ async function startScan() {
   }
   
   scanBtn.disabled = true;
-  statusText.textContent = '扫描中...';
+  refreshBtn.disabled = true;
+  clearCacheBtn.disabled = true;
+  statusText.textContent = forceRefresh ? '强制刷新中...' : '扫描中...';
   progressBar.style.width = '0%';
   progressBar.classList.add('active');
   
@@ -114,11 +152,15 @@ async function startScan() {
   treeContent.innerHTML = '<div class="placeholder"><p>正在扫描...</p></div>';
   
   try {
-    const result = await window.electronAPI.scanDirectory(path);
+    const result = await window.electronAPI.scanDirectory(path, forceRefresh);
     
     if (result.success) {
       currentData = result.data;
-      statusText.textContent = '扫描完成';
+      if (result.fromCache) {
+        statusText.textContent = '已从缓存加载 (点击刷新按钮强制更新)';
+      } else {
+        statusText.textContent = '扫描完成';
+      }
       updateInfo(result.data);
       renderTreemap(result.data);
       renderTree(result.data);
@@ -133,6 +175,8 @@ async function startScan() {
     treeContent.innerHTML = '<div class="placeholder"><p>扫描出错</p></div>';
   } finally {
     scanBtn.disabled = false;
+    refreshBtn.disabled = false;
+    clearCacheBtn.disabled = false;
     progressBar.classList.remove('active');
     progressBar.style.width = '100%';
     setTimeout(() => {

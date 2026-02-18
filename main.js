@@ -1,10 +1,20 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 app.setPath('userData', path.join(__dirname, 'app-data'));
 
+const CACHE_DIR = path.join(__dirname, 'app-data', 'cache');
+const CACHE_EXPIRE_TIME = 24 * 60 * 60 * 1000;
+
 let mainWindow;
+let scanCache = new Map();
+let scanningPaths = new Set();
+
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -39,11 +49,77 @@ app.on('window-all-closed', () => {
   }
 });
 
-ipcMain.handle('scan-directory', async (event, dirPath) => {
+function getCacheKey(dirPath) {
+  return crypto.createHash('md5').update(dirPath.toLowerCase()).digest('hex');
+}
+
+function getCachePath(cacheKey) {
+  return path.join(CACHE_DIR, `${cacheKey}.json`);
+}
+
+function loadCache(dirPath) {
   try {
-    const result = await scanDirectory(dirPath, 0, 3);
-    return { success: true, data: result };
+    const cacheKey = getCacheKey(dirPath);
+    const cachePath = getCachePath(cacheKey);
+    
+    if (fs.existsSync(cachePath)) {
+      const cacheData = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      const cacheTime = cacheData.timestamp || 0;
+      
+      if (Date.now() - cacheTime < CACHE_EXPIRE_TIME) {
+        return cacheData;
+      }
+    }
+  } catch (e) {
+    console.error('Load cache error:', e);
+  }
+  return null;
+}
+
+function saveCache(dirPath, data) {
+  try {
+    const cacheKey = getCacheKey(dirPath);
+    const cachePath = getCachePath(cacheKey);
+    
+    const cacheData = {
+      path: dirPath,
+      timestamp: Date.now(),
+      data: data
+    };
+    
+    fs.writeFileSync(cachePath, JSON.stringify(cacheData));
+  } catch (e) {
+    console.error('Save cache error:', e);
+  }
+}
+
+ipcMain.handle('scan-directory', async (event, dirPath, forceRefresh = false) => {
+  try {
+    if (scanningPaths.has(dirPath)) {
+      return { success: false, error: '正在扫描该路径' };
+    }
+    
+    scanningPaths.add(dirPath);
+    
+    if (!forceRefresh) {
+      const cachedResult = loadCache(dirPath);
+      if (cachedResult && cachedResult.data) {
+        const incrementalResult = await incrementalUpdate(cachedResult.data);
+        if (incrementalResult) {
+          scanningPaths.delete(dirPath);
+          return { success: true, data: incrementalResult, fromCache: true };
+        }
+      }
+    }
+    
+    const result = await scanDirectoryParallel(dirPath, 0, 3, event);
+    
+    saveCache(dirPath, result);
+    
+    scanningPaths.delete(dirPath);
+    return { success: true, data: result, fromCache: false };
   } catch (error) {
+    scanningPaths.delete(dirPath);
     return { success: false, error: error.message };
   }
 });
@@ -78,7 +154,36 @@ ipcMain.handle('get-drives', async () => {
   }
 });
 
-async function scanDirectory(dirPath, currentDepth, maxDepth) {
+ipcMain.handle('clear-cache', async () => {
+  try {
+    if (fs.existsSync(CACHE_DIR)) {
+      const files = fs.readdirSync(CACHE_DIR);
+      files.forEach(file => {
+        fs.unlinkSync(path.join(CACHE_DIR, file));
+      });
+    }
+    scanCache.clear();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+async function incrementalUpdate(cachedData) {
+  try {
+    const stats = fs.statSync(cachedData.path);
+    
+    if (stats.mtime.getTime() <= (cachedData.modified || 0)) {
+      return cachedData;
+    }
+    
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function scanDirectoryParallel(dirPath, currentDepth, maxDepth, event) {
   const stats = fs.statSync(dirPath);
   
   if (stats.isFile()) {
@@ -87,7 +192,7 @@ async function scanDirectory(dirPath, currentDepth, maxDepth) {
       path: dirPath,
       size: stats.size,
       isFile: true,
-      modified: stats.mtime
+      modified: stats.mtime.getTime()
     };
   }
 
@@ -97,29 +202,49 @@ async function scanDirectory(dirPath, currentDepth, maxDepth) {
     size: 0,
     isFile: false,
     children: [],
-    modified: stats.mtime
+    modified: stats.mtime.getTime()
   };
 
   if (currentDepth >= maxDepth) {
-    result.size = getDirectorySizeSync(dirPath);
+    result.size = await getDirectorySizeFast(dirPath);
     return result;
   }
 
   let children = [];
   try {
-    children = fs.readdirSync(dirPath);
+    children = fs.readdirSync(dirPath, { withFileTypes: true });
   } catch (e) {
     return result;
   }
 
-  for (const child of children) {
-    const childPath = path.join(dirPath, child);
-    try {
-      const childResult = await scanDirectory(childPath, currentDepth + 1, maxDepth);
-      result.children.push(childResult);
-      result.size += childResult.size;
-    } catch (e) {
-      // Skip inaccessible files/folders
+  const batchSize = 20;
+  const batches = [];
+  
+  for (let i = 0; i < children.length; i += batchSize) {
+    batches.push(children.slice(i, i + batchSize));
+  }
+
+  for (const batch of batches) {
+    const promises = batch.map(child => {
+      const childPath = path.join(dirPath, child.name);
+      return scanDirectoryParallel(childPath, currentDepth + 1, maxDepth, event)
+        .catch(() => null);
+    });
+    
+    const results = await Promise.all(promises);
+    
+    for (const childResult of results) {
+      if (childResult) {
+        result.children.push(childResult);
+        result.size += childResult.size;
+      }
+    }
+    
+    if (event && currentDepth === 0) {
+      event.sender.send('scan-progress', {
+        scanned: result.children.length,
+        total: children.length
+      });
     }
   }
 
@@ -128,25 +253,41 @@ async function scanDirectory(dirPath, currentDepth, maxDepth) {
   return result;
 }
 
-function getDirectorySizeSync(dirPath) {
+async function getDirectorySizeFast(dirPath) {
   let size = 0;
+  
   try {
-    const files = fs.readdirSync(dirPath);
-    for (const file of files) {
-      const filePath = path.join(dirPath, file);
-      try {
-        const stats = fs.statSync(filePath);
-        if (stats.isFile()) {
-          size += stats.size;
-        } else {
-          size += getDirectorySizeSync(filePath);
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    
+    const batchSize = 50;
+    const batches = [];
+    
+    for (let i = 0; i < entries.length; i += batchSize) {
+      batches.push(entries.slice(i, i + batchSize));
+    }
+    
+    for (const batch of batches) {
+      const promises = batch.map(async (entry) => {
+        const fullPath = path.join(dirPath, entry.name);
+        try {
+          if (entry.isFile()) {
+            const stats = fs.statSync(fullPath);
+            return stats.size;
+          } else if (entry.isDirectory()) {
+            return await getDirectorySizeFast(fullPath);
+          }
+        } catch (e) {
+          return 0;
         }
-      } catch (e) {
-        // Skip
-      }
+        return 0;
+      });
+      
+      const sizes = await Promise.all(promises);
+      size += sizes.reduce((sum, s) => sum + s, 0);
     }
   } catch (e) {
     // Skip
   }
+  
   return size;
 }
