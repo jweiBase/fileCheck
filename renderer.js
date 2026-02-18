@@ -229,8 +229,7 @@ function renderTreemap(data) {
     return;
   }
   
-  const totalSize = data.size || 1;
-  const cells = squarify(data.children, { x: 0, y: 0, width, height }, totalSize, 0);
+  const cells = squarify(data.children, { x: 0, y: 0, width, height }, 0);
   
   cells.forEach(cell => {
     const div = createCellElement(cell);
@@ -240,61 +239,137 @@ function renderTreemap(data) {
   treemapContainer.appendChild(treemap);
 }
 
-function squarify(children, rect, totalSize, depth) {
+function squarify(children, rect, depth) {
   if (!children || children.length === 0 || depth >= MAX_DEPTH) {
     return [];
   }
   
-  const cells = [];
   const sortedChildren = [...children].sort((a, b) => b.size - a.size);
-  
   const validChildren = sortedChildren.filter(c => c.size > 0);
-  if (validChildren.length === 0) return cells;
   
-  const childrenTotal = validChildren.reduce((sum, c) => sum + c.size, 0);
-  if (childrenTotal === 0) return cells;
+  if (validChildren.length === 0) return [];
   
-  layoutRow(validChildren, rect, childrenTotal, depth, cells);
+  const totalSize = validChildren.reduce((sum, c) => sum + c.size, 0);
+  if (totalSize === 0) return [];
+  
+  return layoutSquarify(validChildren, rect, totalSize, depth);
+}
+
+function layoutSquarify(children, rect, totalSize, depth) {
+  const cells = [];
+  let remainingRect = { ...rect };
+  let remainingChildren = [...children];
+  let remainingTotal = totalSize;
+  
+  while (remainingChildren.length > 0 && remainingRect.width > 0 && remainingRect.height > 0) {
+    const isHorizontal = remainingRect.width >= remainingRect.height;
+    
+    let row = [];
+    let rowSize = 0;
+    let bestRatio = Infinity;
+    
+    for (let i = 0; i < remainingChildren.length; i++) {
+      const testRow = remainingChildren.slice(0, i + 1);
+      const testRowSize = testRow.reduce((sum, c) => sum + c.size, 0);
+      
+      const ratio = calculateWorstRatio(testRow, testRowSize, remainingRect, isHorizontal);
+      
+      if (ratio <= bestRatio) {
+        row = testRow;
+        rowSize = testRowSize;
+        bestRatio = ratio;
+      } else {
+        break;
+      }
+    }
+    
+    if (row.length === 0) {
+      row = [remainingChildren[0]];
+      rowSize = row[0].size;
+    }
+    
+    const rowCells = layoutRow(row, remainingRect, rowSize, remainingTotal, depth, isHorizontal);
+    cells.push(...rowCells);
+    
+    const rowArea = (remainingRect.width * remainingRect.height) * (rowSize / remainingTotal);
+    const rowThickness = rowArea / (isHorizontal ? remainingRect.width : remainingRect.height);
+    
+    if (isHorizontal) {
+      remainingRect.y += rowThickness;
+      remainingRect.height -= rowThickness;
+    } else {
+      remainingRect.x += rowThickness;
+      remainingRect.width -= rowThickness;
+    }
+    
+    remainingChildren = remainingChildren.slice(row.length);
+    remainingTotal -= rowSize;
+  }
   
   return cells;
 }
 
-function layoutRow(children, rect, totalSize, depth, cells) {
-  if (children.length === 0) return;
+function calculateWorstRatio(row, rowSize, rect, isHorizontal) {
+  const totalArea = rect.width * rect.height;
+  const rowArea = totalArea * (rowSize / rect.width / rect.height * (isHorizontal ? rect.height : rect.width));
   
-  const width = rect.width;
-  const height = rect.height;
+  const rowThickness = isHorizontal 
+    ? rowArea / rect.width 
+    : rowArea / rect.height;
   
-  if (width <= 0 || height <= 0) return;
+  let worstRatio = 0;
   
-  let currentX = rect.x;
-  let currentY = rect.y;
-  
-  const isHorizontal = width >= height;
-  
-  for (let i = 0; i < children.length; i++) {
-    const child = children[i];
-    const ratio = child.size / totalSize;
+  for (const child of row) {
+    const childArea = totalArea * (child.size / (rect.width * rect.height));
+    const childWidth = isHorizontal ? (child.size / rowSize) * rect.width : rowThickness;
+    const childHeight = isHorizontal ? rowThickness : (child.size / rowSize) * rect.height;
     
-    let cellWidth, cellHeight;
+    const ratio = Math.max(childWidth / childHeight, childHeight / childWidth);
+    worstRatio = Math.max(worstRatio, ratio);
+  }
+  
+  return worstRatio;
+}
+
+function layoutRow(row, rect, rowSize, totalSize, depth, isHorizontal) {
+  const cells = [];
+  
+  const totalArea = rect.width * rect.height;
+  const rowAreaFraction = rowSize / totalSize;
+  const rowThickness = isHorizontal 
+    ? rect.height * rowAreaFraction
+    : rect.width * rowAreaFraction;
+  
+  let offset = isHorizontal ? rect.x : rect.y;
+  
+  row.forEach((child, index) => {
+    const childAreaFraction = child.size / rowSize;
+    
+    let cellWidth, cellHeight, cellX, cellY;
     
     if (isHorizontal) {
-      cellWidth = Math.max(MIN_CELL_SIZE, width * ratio);
-      cellHeight = height;
+      cellWidth = rect.width * childAreaFraction;
+      cellHeight = rowThickness;
+      cellX = offset;
+      cellY = rect.y;
+      offset += cellWidth;
     } else {
-      cellWidth = width;
-      cellHeight = Math.max(MIN_CELL_SIZE, height * ratio);
+      cellWidth = rowThickness;
+      cellHeight = rect.height * childAreaFraction;
+      cellX = rect.x;
+      cellY = offset;
+      offset += cellHeight;
     }
     
-    if (cellWidth < MIN_CELL_SIZE || cellHeight < MIN_CELL_SIZE) continue;
+    if (cellWidth < MIN_CELL_SIZE || cellHeight < MIN_CELL_SIZE) return;
     
     const colorIndex = depth % COLORS.length;
-    const shadeIndex = Math.min(i % 3, 2);
+    const shadeIndex = index % 3;
     const color = COLORS[colorIndex][shadeIndex];
     
     const cell = {
-      x: currentX,
-      y: currentY,
+      x: cellX,
+      y: cellY,
       width: cellWidth,
       height: cellHeight,
       data: child,
@@ -305,23 +380,22 @@ function layoutRow(children, rect, totalSize, depth, cells) {
     cells.push(cell);
     
     if (child.children && child.children.length > 0 && depth < MAX_DEPTH - 1) {
-      const padding = 4;
+      const padding = 3;
       const innerRect = {
-        x: currentX + padding,
-        y: currentY + padding,
+        x: cellX + padding,
+        y: cellY + padding,
         width: cellWidth - padding * 2,
         height: cellHeight - padding * 2
       };
-      const innerCells = squarify(child.children, innerRect, child.size, depth + 1);
-      cells.push(...innerCells);
+      
+      if (innerRect.width > MIN_CELL_SIZE && innerRect.height > MIN_CELL_SIZE) {
+        const innerCells = squarify(child.children, innerRect, depth + 1);
+        cells.push(...innerCells);
+      }
     }
-    
-    if (isHorizontal) {
-      currentX += cellWidth;
-    } else {
-      currentY += cellHeight;
-    }
-  }
+  });
+  
+  return cells;
 }
 
 function createCellElement(cell) {
@@ -333,21 +407,44 @@ function createCellElement(cell) {
   div.style.height = cell.height + 'px';
   div.style.backgroundColor = cell.color;
   
-  if (cell.width > 60 && cell.height > 40) {
+  const area = cell.width * cell.height;
+  const minArea = 800;
+  const aspectRatio = Math.max(cell.width / cell.height, cell.height / cell.width);
+  
+  if (area >= minArea) {
     const labelContainer = document.createElement('div');
+    labelContainer.className = 'label-container';
+    
+    const isVertical = cell.height > cell.width * 1.5;
+    
+    if (isVertical && cell.height > 60) {
+      labelContainer.style.writingMode = 'vertical-rl';
+      labelContainer.style.textOrientation = 'mixed';
+      labelContainer.style.flexDirection = 'column-reverse';
+    }
+    
     labelContainer.style.display = 'flex';
-    labelContainer.style.flexDirection = 'column';
+    labelContainer.style.flexDirection = isVertical ? 'column-reverse' : 'column';
     labelContainer.style.alignItems = 'center';
     labelContainer.style.justifyContent = 'center';
     labelContainer.style.width = '100%';
     labelContainer.style.height = '100%';
+    labelContainer.style.padding = '2px';
     
     const label = document.createElement('div');
     label.className = 'label';
-    label.textContent = truncateText(cell.data.name, cell.width / 8);
+    
+    const maxChars = isVertical 
+      ? Math.floor(cell.height / 12) 
+      : Math.floor(cell.width / 7);
+    label.textContent = truncateText(cell.data.name, Math.max(3, maxChars));
     labelContainer.appendChild(label);
     
-    if (cell.width > 80 && cell.height > 50) {
+    const showSize = isVertical 
+      ? (cell.width > 35 && cell.height > 80)
+      : (cell.width > 50 && cell.height > 35);
+    
+    if (showSize) {
       const sizeLabel = document.createElement('div');
       sizeLabel.className = 'size-label';
       sizeLabel.textContent = formatSize(cell.data.size);
