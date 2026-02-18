@@ -1,0 +1,21 @@
+{
+  "name": "disk-visualizer",
+  "version": "1.0.0",
+  "description": "磁盘空间可视化工具 - 使用矩形树图展示文件占用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "keywords": [
+    "disk",
+    "visualizer",
+    "treemap",
+    "storage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.3.3"
+  }
+}

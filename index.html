@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>磁盘空间可视化工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>磁盘空间可视化工具</h1>
+      <button id="helpBtn" class="help-btn" title="使用说明">?</button>
+    </header>
+    
+    <div class="control-panel">
+      <div class="input-group">
+        <label for="pathInput">选择路径:</label>
+        <input type="text" id="pathInput" placeholder="输入磁盘路径，如 C:\ 或 D:\projects">
+        <select id="driveSelect">
+          <option value="">选择磁盘...</option>
+        </select>
+      </div>
+      <button id="scanBtn" class="scan-btn">开始扫描</button>
+      <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <span id="statusText" class="status-text">就绪</span>
+    </div>
+
+    <div class="info-panel" id="infoPanel">
+      <div class="info-item">
+        <span class="info-label">总大小:</span>
+        <span id="totalSize" class="info-value">-</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">文件数:</span>
+        <span id="fileCount" class="info-value">-</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">文件夹数:</span>
+        <span id="folderCount" class="info-value">-</span>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="treemap-container" id="treemapContainer">
+        <div class="placeholder">
+          <p>请输入路径并点击"开始扫描"按钮</p>
+        </div>
+      </div>
+      
+      <div class="tree-panel" id="treePanel">
+        <div class="tree-header">
+          <span>文件目录</span>
+          <input type="text" id="treeSearch" class="tree-search" placeholder="搜索文件...">
+        </div>
+        <div class="tree-content" id="treeContent">
+          <div class="placeholder">
+            <p>扫描后显示文件目录</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <div id="helpModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>使用说明</h2>
+          <span class="close-btn">&times;</span>
+        </div>
+        <div class="modal-body">
+          <section>
+            <h3>功能介绍</h3>
+            <p>本工具用于可视化磁盘空间占用情况，使用矩形树图（Treemap）方式展示文件和文件夹的大小分布。</p>
+          </section>
+          
+          <section>
+            <h3>使用步骤</h3>
+            <ol>
+              <li><strong>选择路径:</strong> 在输入框中输入要扫描的磁盘路径（如 C:\ 或 D:\projects），或从下拉菜单中选择磁盘。</li>
+              <li><strong>开始扫描:</strong> 点击"开始扫描"按钮，程序将递归扫描指定路径下的所有文件和文件夹。</li>
+              <li><strong>查看结果:</strong> 扫描完成后，界面将显示矩形树图，每个矩形代表一个文件或文件夹，面积与大小成正比。</li>
+              <li><strong>交互操作:</strong>
+                <ul>
+                  <li>鼠标悬停在矩形上可查看详细信息</li>
+                  <li>点击矩形可在资源管理器中打开对应文件/文件夹位置</li>
+                </ul>
+              </li>
+            </ol>
+          </section>
+
+          <section>
+            <h3>可视化说明</h3>
+            <ul>
+              <li><strong>矩形大小:</strong> 表示文件/文件夹占用空间大小，越大占用越多</li>
+              <li><strong>颜色深浅:</strong> 表示层级深度，最深可显示3层嵌套</li>
+              <li><strong>边框粗细:</strong> 表示是否为文件夹（粗边框为文件夹）</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>注意事项</h3>
+            <ul>
+              <li>扫描大型磁盘可能需要较长时间，请耐心等待</li>
+              <li>某些系统文件夹可能无法访问，会被自动跳过</li>
+              <li>建议以管理员权限运行以获取完整的扫描结果</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>快捷键</h3>
+            <ul>
+              <li><strong>Enter:</strong> 在路径输入框中按回车开始扫描</li>
+              <li><strong>Esc:</strong> 关闭帮助窗口</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
