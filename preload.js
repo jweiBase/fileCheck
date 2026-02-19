@@ -1,4 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const fs = require('fs');
+const path = require('path');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   scanDirectory: (dirPath, forceRefresh = false) => 
@@ -11,5 +13,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, data) => callback(data);
     ipcRenderer.on('scan-progress', listener);
     return () => ipcRenderer.removeListener('scan-progress', listener);
+  },
+  log: (message) => {
+    ipcRenderer.send('log', message);
+  },
+  loadTranslation: (lang) => {
+    try {
+      const filePath = path.join(__dirname, 'locales', lang + '.json');
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        return JSON.parse(content);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading translation:', error);
+      return null;
+    }
   }
 });

@@ -1,3 +1,4 @@
+// 获取DOM元素
 const pathInput = document.getElementById('pathInput');
 const driveSelect = document.getElementById('driveSelect');
 const scanBtn = document.getElementById('scanBtn');
@@ -16,6 +17,283 @@ const folderCountEl = document.getElementById('folderCount');
 const treeContent = document.getElementById('treeContent');
 const treeSearch = document.getElementById('treeSearch');
 const largeFilesContent = document.getElementById('largeFilesContent');
+const languageSelect = document.getElementById('languageSelect');
+
+let currentLanguage = 'zh-CN';
+let translations = {};
+
+// 硬编码语言数据，用于测试
+const hardcodedTranslations = {
+  'zh-CN': {
+    "app": {
+      "title": "磁盘空间可视化工具",
+      "header": "磁盘空间可视化工具"
+    },
+    "controls": {
+      "selectPath": "选择路径:",
+      "selectDrive": "选择磁盘...",
+      "scan": "开始扫描",
+      "refresh": "🔄 刷新",
+      "refreshTooltip": "强制刷新（忽略缓存）",
+      "clearCacheTooltip": "清除所有缓存",
+      "help": "使用说明"
+    },
+    "status": {
+      "ready": "就绪",
+      "scanning": "扫描中...",
+      "forceRefreshing": "强制刷新中...",
+      "scanningPlaceholder": "正在扫描，请稍候...",
+      "scanningTree": "正在扫描...",
+      "scanComplete": "扫描完成",
+      "fromCache": "已从缓存加载 (点击刷新按钮强制更新)",
+      "enterPath": "请输入路径",
+      "cacheCleared": "缓存已清除"
+    },
+    "info": {
+      "totalSize": "总大小:",
+      "fileCount": "文件数:",
+      "folderCount": "文件夹数:"
+    },
+    "panels": {
+      "treemapPlaceholder": "请输入路径并点击\"开始扫描\"按钮",
+      "treemapEmpty": "该路径为空或无法访问",
+      "largeFiles": "大文件列表",
+      "largeFilesPlaceholder": "扫描后显示大文件",
+      "largeFilesEmpty": "未找到大文件",
+      "directoryTree": "文件目录",
+      "directoryTreePlaceholder": "扫描后显示文件目录",
+      "directoryTreeEmpty": "无数据",
+      "treeSearch": "搜索文件..."
+    },
+    "tooltip": {
+      "file": "文件",
+      "folder": "文件夹"
+    },
+    "language": {
+      "zhCN": "中文",
+      "enUS": "English"
+    }
+  },
+  'en-US': {
+    "app": {
+      "title": "Disk Space Visualizer",
+      "header": "Disk Space Visualizer"
+    },
+    "controls": {
+      "selectPath": "Select Path:",
+      "selectDrive": "Select Drive...",
+      "scan": "Start Scan",
+      "refresh": "🔄 Refresh",
+      "refreshTooltip": "Force refresh (ignore cache)",
+      "clearCacheTooltip": "Clear all cache",
+      "help": "Usage Instructions"
+    },
+    "status": {
+      "ready": "Ready",
+      "scanning": "Scanning...",
+      "forceRefreshing": "Force refreshing...",
+      "scanningPlaceholder": "Scanning, please wait...",
+      "scanningTree": "Scanning...",
+      "scanComplete": "Scan complete",
+      "fromCache": "Loaded from cache (click refresh button to force update)",
+      "enterPath": "Please enter path",
+      "cacheCleared": "Cache cleared"
+    },
+    "info": {
+      "totalSize": "Total Size:",
+      "fileCount": "File Count:",
+      "folderCount": "Folder Count:"
+    },
+    "panels": {
+      "treemapPlaceholder": "Please enter path and click \"Start Scan\" button",
+      "treemapEmpty": "This path is empty or inaccessible",
+      "largeFiles": "Large Files",
+      "largeFilesPlaceholder": "Large files will be displayed after scanning",
+      "largeFilesEmpty": "No large files found",
+      "directoryTree": "Directory Tree",
+      "directoryTreePlaceholder": "Directory tree will be displayed after scanning",
+      "directoryTreeEmpty": "No data",
+      "treeSearch": "Search files..."
+    },
+    "tooltip": {
+      "file": "File",
+      "folder": "Folder"
+    },
+    "language": {
+      "zhCN": "中文",
+      "enUS": "English"
+    }
+  }
+};
+
+function loadTranslations(lang) {
+  // 返回硬编码的语言数据
+  return hardcodedTranslations[lang] || {};
+}
+
+function setLanguage(lang) {
+  currentLanguage = lang;
+  translations = loadTranslations(lang);
+  updateUIWithTranslations();
+  localStorage.setItem('preferredLanguage', lang);
+}
+
+function updateUIWithTranslations() {
+  if (!translations) return;
+  
+  // Update app title and header
+  document.title = translations.app?.title || 'Disk Space Visualizer';
+  document.querySelector('header h1').textContent = translations.app?.header || 'Disk Space Visualizer';
+  
+  // Update language selector options
+  let langSelect = languageSelect;
+  if (!langSelect) {
+    langSelect = document.getElementById('languageSelect');
+  }
+  
+  if (langSelect) {
+    langSelect.options[0].text = translations.language?.zhCN || '中文';
+    langSelect.options[1].text = translations.language?.enUS || 'English';
+  }
+  
+  // Update controls
+  document.querySelector('label[for="pathInput"]').textContent = translations.controls?.selectPath || 'Select Path:';
+  document.getElementById('driveSelect').options[0].text = translations.controls?.selectDrive || 'Select Drive...';
+  scanBtn.textContent = translations.controls?.scan || 'Start Scan';
+  refreshBtn.textContent = translations.controls?.refresh || '🔄 Refresh';
+  refreshBtn.title = translations.controls?.refreshTooltip || 'Force refresh (ignore cache)';
+  clearCacheBtn.title = translations.controls?.clearCacheTooltip || 'Clear all cache';
+  helpBtn.title = translations.controls?.help || 'Usage Instructions';
+  
+  // Update path input placeholder
+  document.getElementById('pathInput').placeholder = currentLanguage === 'zh-CN' ? '输入磁盘路径，如 C:\\ 或 D:\\projects' : 'Enter disk path, e.g., C:\\ or D:\\projects';
+  
+  // Update status text - always update regardless of current text
+  if (statusText.textContent === '就绪' || statusText.textContent === 'Ready') {
+    statusText.textContent = translations.status?.ready || 'Ready';
+  } else if (statusText.textContent === '扫描中...' || statusText.textContent === 'Scanning...') {
+    statusText.textContent = translations.status?.scanning || 'Scanning...';
+  } else if (statusText.textContent === '强制刷新中...' || statusText.textContent === 'Force refreshing...') {
+    statusText.textContent = translations.status?.forceRefreshing || 'Force refreshing...';
+  } else if (statusText.textContent === '扫描完成' || statusText.textContent === 'Scan complete') {
+    statusText.textContent = translations.status?.scanComplete || 'Scan complete';
+  } else if (statusText.textContent === '请输入路径' || statusText.textContent === 'Please enter path') {
+    statusText.textContent = translations.status?.enterPath || 'Please enter path';
+  } else if (statusText.textContent === '缓存已清除' || statusText.textContent === 'Cache cleared') {
+    statusText.textContent = translations.status?.cacheCleared || 'Cache cleared';
+  }
+  
+  // Update info panel
+  document.querySelectorAll('.info-label')[0].textContent = translations.info?.totalSize || 'Total Size:';
+  document.querySelectorAll('.info-label')[1].textContent = translations.info?.fileCount || 'File Count:';
+  document.querySelectorAll('.info-label')[2].textContent = translations.info?.folderCount || 'Folder Count:';
+  
+  // Update panels
+  document.querySelector('.large-files-header span').textContent = translations.panels?.largeFiles || 'Large Files';
+  document.querySelector('.tree-header span').textContent = translations.panels?.directoryTree || 'Directory Tree';
+  treeSearch.placeholder = translations.panels?.treeSearch || 'Search files...';
+  
+  // Update help modal
+  document.querySelector('.modal-header h2').textContent = translations.help?.title || 'Usage Instructions';
+  document.querySelectorAll('.modal-body h3')[0].textContent = translations.help?.features || 'Features';
+  document.querySelectorAll('.modal-body h3')[1].textContent = translations.help?.steps || 'Usage Steps';
+  document.querySelectorAll('.modal-body h3')[2].textContent = translations.help?.visualization || 'Visualization Instructions';
+  document.querySelectorAll('.modal-body h3')[3].textContent = translations.help?.notes || 'Notes';
+  document.querySelectorAll('.modal-body h3')[4].textContent = translations.help?.shortcuts || 'Shortcuts';
+  
+  document.querySelectorAll('.modal-body p')[0].textContent = translations.help?.featuresDesc || 'This tool is used to visualize disk space usage, displaying file size distribution using treemap visualization.';
+  document.querySelectorAll('.modal-body ol li')[0].innerHTML = `<strong>${translations.help?.step1 || 'Select Path:'}</strong> ${translations.help?.step1Desc || 'Enter the disk path to scan (e.g., C:\\ or D:\\projects) in the input box, or select a drive from the dropdown menu.'}`;
+  document.querySelectorAll('.modal-body ol li')[1].innerHTML = `<strong>${translations.help?.step2 || 'Start Scan:'}</strong> ${translations.help?.step2Desc || 'Click the "Start Scan" button, and the program will recursively scan all files and folders under the specified path.'}`;
+  document.querySelectorAll('.modal-body ol li')[2].innerHTML = `<strong>${translations.help?.step3 || 'View Results:'}</strong> ${translations.help?.step3Desc || 'After scanning is complete, the interface will display a treemap, where each rectangle represents a file or folder, with area proportional to size.'}`;
+  document.querySelectorAll('.modal-body ol li')[3].innerHTML = `<strong>${translations.help?.step4 || 'Interaction:'}</strong>`;
+  document.querySelectorAll('.modal-body ul')[0].innerHTML = `
+    <li>${translations.help?.step4a || 'Hover over rectangles to view detailed information'}</li>
+    <li>${translations.help?.step4b || 'Click rectangles to open the corresponding file/folder location in Explorer'}</li>
+  `;
+  document.querySelectorAll('.modal-body ul')[1].innerHTML = `
+    <li><strong>${translations.help?.size || 'Rectangle Size:'}</strong> ${translations.help?.sizeDesc || 'Represents file/folder space usage, larger means more usage'}</li>
+    <li><strong>${translations.help?.color || 'Color Depth:'}</strong> ${translations.help?.colorDesc || 'Represents hierarchy depth, up to 3 levels of nesting can be displayed'}</li>
+    <li><strong>${translations.help?.border || 'Border Thickness:'}</strong> ${translations.help?.borderDesc || 'Indicates whether it is a folder (thick border for folders)'}</li>
+  `;
+  document.querySelectorAll('.modal-body ul')[2].innerHTML = `
+    <li>${translations.help?.note1 || 'Scanning large disks may take a long time, please be patient'}</li>
+    <li>${translations.help?.note2 || 'Some system folders may be inaccessible and will be automatically skipped'}</li>
+    <li>${translations.help?.note3 || 'It is recommended to run with administrator privileges to get complete scan results'}</li>
+  `;
+  document.querySelectorAll('.modal-body ul')[3].innerHTML = `
+    <li><strong>${translations.help?.shortcutEnter || 'Enter:'}</strong> ${translations.help?.shortcutEnterDesc || 'Press Enter in the path input box to start scanning'}</li>
+    <li><strong>${translations.help?.shortcutEsc || 'Esc:'}</strong> ${translations.help?.shortcutEscDesc || 'Close help window'}</li>
+  `;
+  
+  // Update placeholders
+  const placeholders = document.querySelectorAll('.placeholder p');
+  placeholders.forEach(placeholder => {
+    // 根据占位符的父元素ID或位置来确定应该使用哪个翻译键
+    const parentElement = placeholder.parentElement;
+    
+    // 检查父元素是否是特定面板的占位符
+    if (parentElement.parentElement.id === 'treemapContainer') {
+      // 树图容器的占位符
+      if (placeholder.textContent.includes('请输入路径') || placeholder.textContent.includes('Please enter path') || 
+          placeholder.textContent.includes('该路径为空') || placeholder.textContent.includes('This path is empty') ||
+          placeholder.textContent.includes('正在扫描，请稍候') || placeholder.textContent.includes('Scanning, please wait')) {
+        // 根据内容类型选择合适的翻译
+        if (placeholder.textContent.includes('正在扫描') || placeholder.textContent.includes('Scanning')) {
+          placeholder.textContent = translations.status?.scanningPlaceholder || 'Scanning, please wait...';
+        } else if (placeholder.textContent.includes('该路径为空') || placeholder.textContent.includes('This path is empty')) {
+          placeholder.textContent = translations.panels?.treemapEmpty || 'This path is empty or inaccessible';
+        } else {
+          placeholder.textContent = translations.panels?.treemapPlaceholder || 'Please enter path and click "Start Scan" button';
+        }
+      }
+    } else if (parentElement.parentElement.id === 'largeFilesContent') {
+      // 大文件面板的占位符
+      if (placeholder.textContent.includes('扫描后显示大文件') || placeholder.textContent.includes('Large files will be displayed') ||
+          placeholder.textContent.includes('未找到大文件') || placeholder.textContent.includes('No large files found')) {
+        if (placeholder.textContent.includes('未找到') || placeholder.textContent.includes('No large files')) {
+          placeholder.textContent = translations.panels?.largeFilesEmpty || 'No large files found';
+        } else {
+          placeholder.textContent = translations.panels?.largeFilesPlaceholder || 'Large files will be displayed after scanning';
+        }
+      }
+    } else if (parentElement.parentElement.id === 'treeContent') {
+      // 目录树面板的占位符
+      if (placeholder.textContent.includes('扫描后显示文件目录') || placeholder.textContent.includes('Directory tree will be displayed') ||
+          placeholder.textContent.includes('无数据') || placeholder.textContent.includes('No data') ||
+          placeholder.textContent.includes('正在扫描...') || placeholder.textContent.includes('Scanning...')) {
+        if (placeholder.textContent.includes('正在扫描') || placeholder.textContent.includes('Scanning')) {
+          placeholder.textContent = translations.status?.scanningTree || 'Scanning...';
+        } else if (placeholder.textContent.includes('无数据') || placeholder.textContent.includes('No data')) {
+          placeholder.textContent = translations.panels?.directoryTreeEmpty || 'No data';
+        } else {
+          placeholder.textContent = translations.panels?.directoryTreePlaceholder || 'Directory tree will be displayed after scanning';
+        }
+      }
+    }
+  });
+  
+  // Update tooltip text
+  document.querySelectorAll('.tooltip-type').forEach(el => {
+    if (el.textContent === '文件' || el.textContent === 'File') {
+      el.textContent = translations.tooltip?.file || 'File';
+    } else if (el.textContent === '文件夹' || el.textContent === 'Folder') {
+      el.textContent = translations.tooltip?.folder || 'Folder';
+    }
+  });
+}
+
+function getTranslation(key, defaultValue = '') {
+  const keys = key.split('.');
+  let value = translations;
+  for (const k of keys) {
+    if (value && typeof value === 'object') {
+      value = value[k];
+    } else {
+      return defaultValue;
+    }
+  }
+  return value || defaultValue;
+}
 
 const MAX_DEPTH = 3;
 const MIN_CELL_SIZE = 30;
@@ -37,6 +315,15 @@ async function init() {
   await loadDrives();
   setupEventListeners();
   setupProgressListener();
+  
+  // Initialize language
+  const savedLanguage = localStorage.getItem('preferredLanguage') || 'zh-CN';
+  setLanguage(savedLanguage);
+  
+  // Update language selector
+  if (languageSelect) {
+    languageSelect.value = savedLanguage;
+  }
 }
 
 function setupProgressListener() {
@@ -55,14 +342,25 @@ function setupProgressListener() {
 
 async function loadDrives() {
   try {
-    const result = await window.electronAPI.getDrives();
-    if (result.success && result.drives.length > 0) {
-      result.drives.forEach(drive => {
-        const option = document.createElement('option');
-        option.value = drive;
-        option.textContent = drive;
-        driveSelect.appendChild(option);
-      });
+    // 清空现有的磁盘选项，只保留第一个默认选项
+    const driveSelectElement = document.getElementById('driveSelect');
+    if (driveSelectElement) {
+      // 保存第一个默认选项
+      const defaultOption = driveSelectElement.options[0];
+      // 清空所有选项
+      driveSelectElement.innerHTML = '';
+      // 重新添加默认选项
+      driveSelectElement.appendChild(defaultOption);
+      
+      const result = await window.electronAPI.getDrives();
+      if (result.success && result.drives.length > 0) {
+        result.drives.forEach(drive => {
+          const option = document.createElement('option');
+          option.value = drive;
+          option.textContent = drive;
+          driveSelectElement.appendChild(option);
+        });
+      }
     }
   } catch (error) {
     console.error('Failed to load drives:', error);
@@ -78,15 +376,15 @@ function setupEventListeners() {
     try {
       const result = await window.electronAPI.clearCache();
       if (result.success) {
-        statusText.textContent = '缓存已清除';
+        statusText.textContent = getTranslation('status.cacheCleared', 'Cache cleared');
         setTimeout(() => {
-          statusText.textContent = '就绪';
+          statusText.textContent = getTranslation('status.ready', 'Ready');
         }, 2000);
       } else {
-        statusText.textContent = '清除缓存失败: ' + result.error;
+        statusText.textContent = getTranslation('status.cacheClearFailed', 'Failed to clear cache: ') + result.error;
       }
     } catch (error) {
-      statusText.textContent = '清除缓存出错: ' + error.message;
+      statusText.textContent = getTranslation('status.cacheClearError', 'Error clearing cache: ') + error.message;
     }
   });
   
@@ -133,24 +431,32 @@ function setupEventListeners() {
     const searchTerm = e.target.value.toLowerCase().trim();
     filterTree(searchTerm);
   });
+  
+  // Language selector event
+  if (languageSelect) {
+    languageSelect.addEventListener('change', (e) => {
+      const selectedLang = e.target.value;
+      setLanguage(selectedLang);
+    });
+  }
 }
 
 async function startScan(forceRefresh = false) {
   const path = pathInput.value.trim();
   if (!path) {
-    statusText.textContent = '请输入路径';
+    statusText.textContent = getTranslation('status.enterPath', 'Please enter path');
     return;
   }
   
   scanBtn.disabled = true;
   refreshBtn.disabled = true;
   clearCacheBtn.disabled = true;
-  statusText.textContent = forceRefresh ? '强制刷新中...' : '扫描中...';
+  statusText.textContent = forceRefresh ? getTranslation('status.forceRefreshing', 'Force refreshing...') : getTranslation('status.scanning', 'Scanning...');
   progressBar.style.width = '0%';
   progressBar.classList.add('active');
   
-  treemapContainer.innerHTML = '<div class="placeholder"><p>正在扫描，请稍候...</p></div>';
-  treeContent.innerHTML = '<div class="placeholder"><p>正在扫描...</p></div>';
+  treemapContainer.innerHTML = `<div class="placeholder"><p>${getTranslation('status.scanningPlaceholder', 'Scanning, please wait...')}</p></div>`;
+  treeContent.innerHTML = `<div class="placeholder"><p>${getTranslation('status.scanningTree', 'Scanning...')}</p></div>`;
   
   try {
     const result = await window.electronAPI.scanDirectory(path, forceRefresh);
@@ -158,9 +464,9 @@ async function startScan(forceRefresh = false) {
     if (result.success) {
         currentData = result.data;
         if (result.fromCache) {
-          statusText.textContent = '已从缓存加载 (点击刷新按钮强制更新)';
+          statusText.textContent = getTranslation('status.fromCache', 'Loaded from cache (click refresh button to force update)');
         } else {
-          statusText.textContent = '扫描完成';
+          statusText.textContent = getTranslation('status.scanComplete', 'Scan complete');
         }
         updateInfo(result.data);
         renderTreemap(result.data);
@@ -226,7 +532,7 @@ function renderTreemap(data) {
   treemap.style.height = height + 'px';
   
   if (!data.children || data.children.length === 0) {
-    treemap.innerHTML = '<div class="placeholder"><p>该路径为空或无法访问</p></div>';
+    treemap.innerHTML = `<div class="placeholder"><p>${getTranslation('panels.treemapEmpty', 'This path is empty or inaccessible')}</p></div>`;
     treemapContainer.appendChild(treemap);
     return;
   }
@@ -468,7 +774,7 @@ function showTooltip(e, data) {
     <div class="tooltip-name">${escapeHtml(data.name)}</div>
     <div class="tooltip-path">${escapeHtml(data.path)}</div>
     <div class="tooltip-size">${formatSize(data.size)}</div>
-    <div class="tooltip-type">${data.isFile ? '文件' : '文件夹'}</div>
+    <div class="tooltip-type">${data.isFile ? (translations.tooltip?.file || 'File') : (translations.tooltip?.folder || 'Folder')}</div>
   `;
   tooltip.style.display = 'block';
   tooltip.style.left = e.clientX + 15 + 'px';
@@ -517,7 +823,7 @@ function renderTree(data) {
   treeContent.innerHTML = '';
   
   if (!data) {
-    treeContent.innerHTML = '<div class="placeholder"><p>无数据</p></div>';
+    treeContent.innerHTML = `<div class="placeholder"><p>${getTranslation('panels.directoryTreeEmpty', 'No data')}</p></div>`;
     return;
   }
   
@@ -688,14 +994,14 @@ function renderLargeFiles(data) {
   largeFilesContent.innerHTML = '';
   
   if (!data) {
-    largeFilesContent.innerHTML = '<div class="placeholder"><p>无数据</p></div>';
+    largeFilesContent.innerHTML = `<div class="placeholder"><p>${getTranslation('panels.directoryTreeEmpty', 'No data')}</p></div>`;
     return;
   }
   
   const largeFiles = collectLargeFiles(data);
   
   if (largeFiles.length === 0) {
-    largeFilesContent.innerHTML = '<div class="placeholder"><p>未找到大文件</p></div>';
+    largeFilesContent.innerHTML = `<div class="placeholder"><p>${getTranslation('panels.largeFilesEmpty', 'No large files found')}</p></div>`;
     return;
   }
   
@@ -734,4 +1040,7 @@ window.addEventListener('resize', () => {
   }
 });
 
-init();
+// Ensure DOM is fully loaded before initializing
+window.addEventListener('DOMContentLoaded', async () => {
+  await init();
+});
