@@ -15,6 +15,7 @@ const fileCountEl = document.getElementById('fileCount');
 const folderCountEl = document.getElementById('folderCount');
 const treeContent = document.getElementById('treeContent');
 const treeSearch = document.getElementById('treeSearch');
+const largeFilesContent = document.getElementById('largeFilesContent');
 
 const MAX_DEPTH = 3;
 const MIN_CELL_SIZE = 30;
@@ -155,15 +156,16 @@ async function startScan(forceRefresh = false) {
     const result = await window.electronAPI.scanDirectory(path, forceRefresh);
     
     if (result.success) {
-      currentData = result.data;
-      if (result.fromCache) {
-        statusText.textContent = '已从缓存加载 (点击刷新按钮强制更新)';
-      } else {
-        statusText.textContent = '扫描完成';
-      }
-      updateInfo(result.data);
-      renderTreemap(result.data);
-      renderTree(result.data);
+        currentData = result.data;
+        if (result.fromCache) {
+          statusText.textContent = '已从缓存加载 (点击刷新按钮强制更新)';
+        } else {
+          statusText.textContent = '扫描完成';
+        }
+        updateInfo(result.data);
+        renderTreemap(result.data);
+        renderTree(result.data);
+        renderLargeFiles(result.data);
     } else {
       statusText.textContent = '扫描失败: ' + result.error;
       treemapContainer.innerHTML = '<div class="placeholder"><p>扫描失败: ' + result.error + '</p></div>';
@@ -661,6 +663,68 @@ function filterTree(searchTerm) {
     } else {
       node.style.display = '';
     }
+  });
+}
+
+function collectLargeFiles(data, maxCount = 10) {
+  const largeFiles = [];
+  
+  function traverse(node) {
+    if (node.isFile) {
+      largeFiles.push(node);
+    } else if (node.children) {
+      node.children.forEach(child => traverse(child));
+    }
+  }
+  
+  traverse(data);
+  
+  return largeFiles
+    .sort((a, b) => b.size - a.size)
+    .slice(0, maxCount);
+}
+
+function renderLargeFiles(data) {
+  largeFilesContent.innerHTML = '';
+  
+  if (!data) {
+    largeFilesContent.innerHTML = '<div class="placeholder"><p>无数据</p></div>';
+    return;
+  }
+  
+  const largeFiles = collectLargeFiles(data);
+  
+  if (largeFiles.length === 0) {
+    largeFilesContent.innerHTML = '<div class="placeholder"><p>未找到大文件</p></div>';
+    return;
+  }
+  
+  largeFiles.forEach(file => {
+    const fileItem = document.createElement('div');
+    fileItem.className = 'large-file-item';
+    fileItem.dataset.path = file.path;
+    
+    const fileName = document.createElement('div');
+    fileName.className = 'large-file-name';
+    fileName.textContent = file.name;
+    
+    const filePath = document.createElement('div');
+    filePath.className = 'large-file-path';
+    filePath.textContent = file.path;
+    
+    const fileSize = document.createElement('div');
+    fileSize.className = 'large-file-size';
+    fileSize.textContent = formatSize(file.size);
+    
+    fileItem.appendChild(fileName);
+    fileItem.appendChild(filePath);
+    fileItem.appendChild(fileSize);
+    
+    fileItem.addEventListener('click', () => {
+      openInExplorer(file.path);
+    });
+    
+    largeFilesContent.appendChild(fileItem);
   });
 }
 
