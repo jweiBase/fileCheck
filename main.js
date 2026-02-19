@@ -30,9 +30,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
-  
-  // Open developer tools to see console logs
-  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -223,11 +220,6 @@ ipcMain.handle('get-cache-info', async (event, dirPath) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
-});
-
-// 监听渲染进程的日志消息
-ipcMain.on('log', (event, message) => {
-  console.log('[Renderer]', message);
 });
 
 async function scanDirectoryParallel(dirPath, currentDepth, maxDepth, event) {
