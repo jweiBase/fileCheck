@@ -1,6 +1,5 @@
 /node_modules
-/app-data/GPUCache/data_2
-/app-data/GPUCache/data_3
-/app-data/GPUCache/data_0
-/app-data/GPUCache/data_1
-/app-data/DawnCache/data_1
+/app-data/
+*.cache
+# 忽略Electron缓存目录
+%APPDATA%/disk-visualizer/scan-cache/
