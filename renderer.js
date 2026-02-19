@@ -16,6 +16,7 @@ const folderCountEl = document.getElementById('folderCount');
 const treeContent = document.getElementById('treeContent');
 const treeSearch = document.getElementById('treeSearch');
 const largeFilesContent = document.getElementById('largeFilesContent');
+const langBtn = document.getElementById('langBtn');
 
 const MAX_DEPTH = 3;
 const MIN_CELL_SIZE = 30;
@@ -34,9 +35,41 @@ let currentData = null;
 let removeProgressListener = null;
 
 async function init() {
+  i18n.init();
+  updateAllText();
+  updateLangButton();
   await loadDrives();
   setupEventListeners();
   setupProgressListener();
+  
+  i18n.onChange(() => {
+    updateAllText();
+    updateLangButton();
+    if (currentData) {
+      renderTree(currentData);
+      renderLargeFiles(currentData);
+    }
+  });
+}
+
+function updateAllText() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = i18n.t(key);
+  });
+  
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    el.placeholder = i18n.t(key);
+  });
+  
+  document.title = i18n.t('app.title');
+  document.documentElement.lang = i18n.getCurrentLang();
+}
+
+function updateLangButton() {
+  langBtn.textContent = '🌐 ' + i18n.getLangLabel();
+  langBtn.title = i18n.t('lang.switch');
 }
 
 function setupProgressListener() {
@@ -48,7 +81,7 @@ function setupProgressListener() {
     if (data.total > 0) {
       const percent = Math.round((data.scanned / data.total) * 100);
       progressBar.style.width = percent + '%';
-      statusText.textContent = `扫描中... ${data.scanned}/${data.total}`;
+      statusText.textContent = i18n.t('status.scanningProgress', { scanned: data.scanned, total: data.total });
     }
   });
 }
@@ -57,6 +90,7 @@ async function loadDrives() {
   try {
     const result = await window.electronAPI.getDrives();
     if (result.success && result.drives.length > 0) {
+      driveSelect.innerHTML = '<option value="">' + i18n.t('placeholders.driveSelect') + '</option>';
       result.drives.forEach(drive => {
         const option = document.createElement('option');
         option.value = drive;
@@ -78,15 +112,15 @@ function setupEventListeners() {
     try {
       const result = await window.electronAPI.clearCache();
       if (result.success) {
-        statusText.textContent = '缓存已清除';
+        statusText.textContent = i18n.t('status.cacheCleared');
         setTimeout(() => {
-          statusText.textContent = '就绪';
+          statusText.textContent = i18n.t('status.ready');
         }, 2000);
       } else {
-        statusText.textContent = '清除缓存失败: ' + result.error;
+        statusText.textContent = i18n.t('status.clearCacheFailed', { error: result.error });
       }
     } catch (error) {
-      statusText.textContent = '清除缓存出错: ' + error.message;
+      statusText.textContent = i18n.t('status.clearCacheError', { error: error.message });
     }
   });
   
@@ -133,24 +167,28 @@ function setupEventListeners() {
     const searchTerm = e.target.value.toLowerCase().trim();
     filterTree(searchTerm);
   });
+  
+  langBtn.addEventListener('click', async () => {
+    await i18n.toggleLanguage();
+  });
 }
 
 async function startScan(forceRefresh = false) {
   const path = pathInput.value.trim();
   if (!path) {
-    statusText.textContent = '请输入路径';
+    statusText.textContent = i18n.t('status.pleaseEnterPath');
     return;
   }
   
   scanBtn.disabled = true;
   refreshBtn.disabled = true;
   clearCacheBtn.disabled = true;
-  statusText.textContent = forceRefresh ? '强制刷新中...' : '扫描中...';
+  statusText.textContent = forceRefresh ? i18n.t('status.forceRefresh') : i18n.t('status.scanning');
   progressBar.style.width = '0%';
   progressBar.classList.add('active');
   
-  treemapContainer.innerHTML = '<div class="placeholder"><p>正在扫描，请稍候...</p></div>';
-  treeContent.innerHTML = '<div class="placeholder"><p>正在扫描...</p></div>';
+  treemapContainer.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.scanning') + '</p></div>';
+  treeContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.scanningTree') + '</p></div>';
   
   try {
     const result = await window.electronAPI.scanDirectory(path, forceRefresh);
@@ -158,23 +196,23 @@ async function startScan(forceRefresh = false) {
     if (result.success) {
         currentData = result.data;
         if (result.fromCache) {
-          statusText.textContent = '已从缓存加载 (点击刷新按钮强制更新)';
+          statusText.textContent = i18n.t('status.fromCache');
         } else {
-          statusText.textContent = '扫描完成';
+          statusText.textContent = i18n.t('status.scanComplete');
         }
         updateInfo(result.data);
         renderTreemap(result.data);
         renderTree(result.data);
         renderLargeFiles(result.data);
     } else {
-      statusText.textContent = '扫描失败: ' + result.error;
-      treemapContainer.innerHTML = '<div class="placeholder"><p>扫描失败: ' + result.error + '</p></div>';
-      treeContent.innerHTML = '<div class="placeholder"><p>扫描失败</p></div>';
+      statusText.textContent = i18n.t('status.scanFailed', { error: result.error });
+      treemapContainer.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.scanFailed', { error: result.error }) + '</p></div>';
+      treeContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.scanError') + '</p></div>';
     }
   } catch (error) {
-    statusText.textContent = '扫描出错: ' + error.message;
-    treemapContainer.innerHTML = '<div class="placeholder"><p>扫描出错: ' + error.message + '</p></div>';
-    treeContent.innerHTML = '<div class="placeholder"><p>扫描出错</p></div>';
+    statusText.textContent = i18n.t('status.scanError', { error: error.message });
+    treemapContainer.innerHTML = '<div class="placeholder"><p>' + i18n.t('status.scanError', { error: error.message }) + '</p></div>';
+    treeContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.scanError') + '</p></div>';
   } finally {
     scanBtn.disabled = false;
     refreshBtn.disabled = false;
@@ -226,7 +264,7 @@ function renderTreemap(data) {
   treemap.style.height = height + 'px';
   
   if (!data.children || data.children.length === 0) {
-    treemap.innerHTML = '<div class="placeholder"><p>该路径为空或无法访问</p></div>';
+    treemap.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.emptyOrInaccessible') + '</p></div>';
     treemapContainer.appendChild(treemap);
     return;
   }
@@ -468,7 +506,7 @@ function showTooltip(e, data) {
     <div class="tooltip-name">${escapeHtml(data.name)}</div>
     <div class="tooltip-path">${escapeHtml(data.path)}</div>
     <div class="tooltip-size">${formatSize(data.size)}</div>
-    <div class="tooltip-type">${data.isFile ? '文件' : '文件夹'}</div>
+    <div class="tooltip-type">${data.isFile ? i18n.t('tooltip.file') : i18n.t('tooltip.folder')}</div>
   `;
   tooltip.style.display = 'block';
   tooltip.style.left = e.clientX + 15 + 'px';
@@ -517,7 +555,7 @@ function renderTree(data) {
   treeContent.innerHTML = '';
   
   if (!data) {
-    treeContent.innerHTML = '<div class="placeholder"><p>无数据</p></div>';
+    treeContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.noData') + '</p></div>';
     return;
   }
   
@@ -639,7 +677,6 @@ function filterTree(searchTerm) {
         if (toggle) toggle.classList.add('expanded');
         parent = parent.parentElement?.parentElement;
         if (parent && parent.classList.contains('tree-children')) {
-          // continue
         } else {
           break;
         }
@@ -688,14 +725,14 @@ function renderLargeFiles(data) {
   largeFilesContent.innerHTML = '';
   
   if (!data) {
-    largeFilesContent.innerHTML = '<div class="placeholder"><p>无数据</p></div>';
+    largeFilesContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.noData') + '</p></div>';
     return;
   }
   
   const largeFiles = collectLargeFiles(data);
   
   if (largeFiles.length === 0) {
-    largeFilesContent.innerHTML = '<div class="placeholder"><p>未找到大文件</p></div>';
+    largeFilesContent.innerHTML = '<div class="placeholder"><p>' + i18n.t('placeholders.noLargeFiles') + '</p></div>';
     return;
   }
   

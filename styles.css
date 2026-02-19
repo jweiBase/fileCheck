@@ -31,6 +31,28 @@ body {
   color: #4fc3f7;
 }
 
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lang-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #4fc3f7;
+  background: transparent;
+  color: #4fc3f7;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.lang-btn:hover {
+  background: rgba(79, 195, 247, 0.2);
+}
+
 .help-btn {
   width: 32px;
   height: 32px;

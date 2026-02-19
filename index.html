@@ -9,38 +9,41 @@
 <body>
   <div class="container">
     <header class="header">
-      <h1>磁盘空间可视化工具</h1>
-      <button id="helpBtn" class="help-btn" title="使用说明">?</button>
+      <h1 data-i18n="app.title">磁盘空间可视化工具</h1>
+      <div class="header-buttons">
+        <button id="langBtn" class="lang-btn" title="切换语言">🌐 EN</button>
+        <button id="helpBtn" class="help-btn" title="使用说明">?</button>
+      </div>
     </header>
     
     <div class="control-panel">
       <div class="input-group">
-        <label for="pathInput">选择路径:</label>
-        <input type="text" id="pathInput" placeholder="输入磁盘路径，如 C:\ 或 D:\projects">
+        <label for="pathInput" data-i18n="labels.selectPath">选择路径:</label>
+        <input type="text" id="pathInput" data-i18n-placeholder="placeholders.pathInput" placeholder="输入磁盘路径，如 C:\ 或 D:\projects">
         <select id="driveSelect">
-          <option value="">选择磁盘...</option>
+          <option value="" data-i18n="placeholders.driveSelect">选择磁盘...</option>
         </select>
       </div>
-      <button id="scanBtn" class="scan-btn">开始扫描</button>
-      <button id="refreshBtn" class="refresh-btn" title="强制刷新（忽略缓存）">🔄 刷新</button>
+      <button id="scanBtn" class="scan-btn" data-i18n="buttons.scan">开始扫描</button>
+      <button id="refreshBtn" class="refresh-btn" title="强制刷新（忽略缓存）">🔄 <span data-i18n="buttons.refresh">刷新</span></button>
       <button id="clearCacheBtn" class="clear-cache-btn" title="清除所有缓存">🗑️</button>
       <div class="progress-container">
         <div id="progressBar" class="progress-bar"></div>
       </div>
-      <span id="statusText" class="status-text">就绪</span>
+      <span id="statusText" class="status-text" data-i18n="status.ready">就绪</span>
     </div>
 
     <div class="info-panel" id="infoPanel">
       <div class="info-item">
-        <span class="info-label">总大小:</span>
+        <span class="info-label" data-i18n="labels.totalSize">总大小:</span>
         <span id="totalSize" class="info-value">-</span>
       </div>
       <div class="info-item">
-        <span class="info-label">文件数:</span>
+        <span class="info-label" data-i18n="labels.files">文件数:</span>
         <span id="fileCount" class="info-value">-</span>
       </div>
       <div class="info-item">
-        <span class="info-label">文件夹数:</span>
+        <span class="info-label" data-i18n="labels.folders">文件夹数:</span>
         <span id="folderCount" class="info-value">-</span>
       </div>
     </div>
@@ -48,29 +51,29 @@
     <div class="main-content">
       <div class="treemap-container" id="treemapContainer">
         <div class="placeholder">
-          <p>请输入路径并点击"开始扫描"按钮</p>
+          <p data-i18n="placeholders.pleaseScan">请输入路径并点击"开始扫描"按钮</p>
         </div>
       </div>
       
       <div class="large-files-panel" id="largeFilesPanel">
         <div class="large-files-header">
-          <span>大文件列表</span>
+          <span data-i18n="panels.largeFiles">大文件列表</span>
         </div>
         <div class="large-files-content" id="largeFilesContent">
           <div class="placeholder">
-            <p>扫描后显示大文件</p>
+            <p data-i18n="placeholders.showLargeFiles">扫描后显示大文件</p>
           </div>
         </div>
       </div>
       
       <div class="tree-panel" id="treePanel">
         <div class="tree-header">
-          <span>文件目录</span>
-          <input type="text" id="treeSearch" class="tree-search" placeholder="搜索文件...">
+          <span data-i18n="panels.fileDirectory">文件目录</span>
+          <input type="text" id="treeSearch" class="tree-search" data-i18n-placeholder="placeholders.treeSearch" placeholder="搜索文件...">
         </div>
         <div class="tree-content" id="treeContent">
           <div class="placeholder">
-            <p>扫描后显示文件目录</p>
+            <p data-i18n="placeholders.showFileDirectory">扫描后显示文件目录</p>
           </div>
         </div>
       </div>
@@ -81,53 +84,53 @@
     <div id="helpModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>使用说明</h2>
+          <h2 data-i18n="help.title">使用说明</h2>
           <span class="close-btn">&times;</span>
         </div>
         <div class="modal-body">
           <section>
-            <h3>功能介绍</h3>
-            <p>本工具用于可视化磁盘空间占用情况，使用矩形树图（Treemap）方式展示文件和文件夹的大小分布。</p>
+            <h3 data-i18n="help.features">功能介绍</h3>
+            <p data-i18n="help.featuresDesc">本工具用于可视化磁盘空间占用情况，使用矩形树图（Treemap）方式展示文件和文件夹的大小分布。</p>
           </section>
           
           <section>
-            <h3>使用步骤</h3>
+            <h3 data-i18n="help.steps">使用步骤</h3>
             <ol>
-              <li><strong>选择路径:</strong> 在输入框中输入要扫描的磁盘路径（如 C:\ 或 D:\projects），或从下拉菜单中选择磁盘。</li>
-              <li><strong>开始扫描:</strong> 点击"开始扫描"按钮，程序将递归扫描指定路径下的所有文件和文件夹。</li>
-              <li><strong>查看结果:</strong> 扫描完成后，界面将显示矩形树图，每个矩形代表一个文件或文件夹，面积与大小成正比。</li>
-              <li><strong>交互操作:</strong>
+              <li data-i18n="help.step1"><strong>选择路径:</strong> 在输入框中输入要扫描的磁盘路径（如 C:\ 或 D:\projects），或从下拉菜单中选择磁盘。</li>
+              <li data-i18n="help.step2"><strong>开始扫描:</strong> 点击"开始扫描"按钮，程序将递归扫描指定路径下的所有文件和文件夹。</li>
+              <li data-i18n="help.step3"><strong>查看结果:</strong> 扫描完成后，界面将显示矩形树图，每个矩形代表一个文件或文件夹，面积与大小成正比。</li>
+              <li data-i18n="help.step4"><strong>交互操作:</strong>
                 <ul>
-                  <li>鼠标悬停在矩形上可查看详细信息</li>
-                  <li>点击矩形可在资源管理器中打开对应文件/文件夹位置</li>
+                  <li data-i18n="help.step4_1">鼠标悬停在矩形上可查看详细信息</li>
+                  <li data-i18n="help.step4_2">点击矩形可在资源管理器中打开对应文件/文件夹位置</li>
                 </ul>
               </li>
             </ol>
           </section>
 
           <section>
-            <h3>可视化说明</h3>
+            <h3 data-i18n="help.visualization">可视化说明</h3>
             <ul>
-              <li><strong>矩形大小:</strong> 表示文件/文件夹占用空间大小，越大占用越多</li>
-              <li><strong>颜色深浅:</strong> 表示层级深度，最深可显示3层嵌套</li>
-              <li><strong>边框粗细:</strong> 表示是否为文件夹（粗边框为文件夹）</li>
+              <li data-i18n="help.viz1"><strong>矩形大小:</strong> 表示文件/文件夹占用空间大小，越大占用越多</li>
+              <li data-i18n="help.viz2"><strong>颜色深浅:</strong> 表示层级深度，最深可显示3层嵌套</li>
+              <li data-i18n="help.viz3"><strong>边框粗细:</strong> 表示是否为文件夹（粗边框为文件夹）</li>
             </ul>
           </section>
 
           <section>
-            <h3>注意事项</h3>
+            <h3 data-i18n="help.notes">注意事项</h3>
             <ul>
-              <li>扫描大型磁盘可能需要较长时间，请耐心等待</li>
-              <li>某些系统文件夹可能无法访问，会被自动跳过</li>
-              <li>建议以管理员权限运行以获取完整的扫描结果</li>
+              <li data-i18n="help.note1">扫描大型磁盘可能需要较长时间，请耐心等待</li>
+              <li data-i18n="help.note2">某些系统文件夹可能无法访问，会被自动跳过</li>
+              <li data-i18n="help.note3">建议以管理员权限运行以获取完整的扫描结果</li>
             </ul>
           </section>
 
           <section>
-            <h3>快捷键</h3>
+            <h3 data-i18n="help.shortcuts">快捷键</h3>
             <ul>
-              <li><strong>Enter:</strong> 在路径输入框中按回车开始扫描</li>
-              <li><strong>Esc:</strong> 关闭帮助窗口</li>
+              <li data-i18n="help.shortcut1"><strong>Enter:</strong> 在路径输入框中按回车开始扫描</li>
+              <li data-i18n="help.shortcut2"><strong>Esc:</strong> 关闭帮助窗口</li>
             </ul>
           </section>
         </div>
@@ -135,6 +138,7 @@
     </div>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
