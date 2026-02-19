@@ -1,5 +1,33 @@
 /node_modules
 /app-data/
+/dist/
+/build/
+/.trae/
 *.cache
 # 忽略Electron缓存目录
 %APPDATA%/disk-visualizer/scan-cache/
+
+# 编辑器和IDE配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统生成文件
+Thumbs.db
+.DS_Store
+
+# 依赖锁定文件
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 构建输出
+/out/
+/build/
+
+# 临时文件
+tmp/
+temp/

@@ -105,6 +105,47 @@ fileCheck/
 └── README.md         # 说明文档
 ```
 
+## 打包
+
+### 安装打包依赖
+
+```bash
+# 安装基础依赖
+npm install
+
+# 安装打包工具
+npm install --save-dev electron-builder
+```
+
+### 生成免安装可执行文件
+
+```bash
+# 打包应用
+npm run dist
+```
+
+### 重新生成可执行文件
+
+当你修改了代码后，执行以下命令重新生成可执行文件：
+
+```bash
+# 清理旧的构建文件（可选）
+rm -rf dist
+
+# 重新打包
+npm run dist
+```
+
+### 打包结果
+
+打包完成后，可执行文件将位于以下目录：
+
+```
+dist/win-unpacked/磁盘空间可视化工具.exe
+```
+
+这是一个免安装的可执行文件，你可以直接双击运行。
+
 ## 许可证
 
 MIT License

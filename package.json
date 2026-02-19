@@ -5,7 +5,26 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "build": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.diskvisualizer.app",
+    "productName": "磁盘空间可视化工具",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "keywords": [
     "disk",
@@ -16,6 +35,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^28.3.3"
+    "electron": "^28.3.3",
+    "electron-builder": "^26.8.1"
   }
 }
